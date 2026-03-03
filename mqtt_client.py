@@ -52,20 +52,15 @@ def handle_osd_message(message: dict):
 
     global BATTERY_PERCENT
 
-    if BATTERY_PERCENT is not None:
-        return
-
-    data = message.get("data", {})
-    battery = data.get("battery", {})
-    percent = battery.get("capacity_percent")
-
-    if percent is not None:
-        BATTERY_PERCENT = percent
-        print(f"🔋 Battery capacity: {percent}%")
-
-        # Cancelar suscripción después de obtenerla
-        client.unsubscribe(topic)
-        print(f"[MQTT] Unsubscribed from {topic}")
+    # record battery once
+    if BATTERY_PERCENT is None:
+        battery = data.get("battery", {})
+        percent = battery.get("capacity_percent")
+        if percent is not None:
+            BATTERY_PERCENT = percent
+            print(f"🔋 Battery capacity: {percent}%")
+            client.unsubscribe(topic)
+            print(f"[MQTT] Unsubscribed from {topic}")
 
 
 # The callback for when a PUBLISH message is received from the server.
@@ -76,6 +71,8 @@ def on_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage):
     except Exception as e:
         print(f"[MQTT] Failed to decode message: {e}")
         return
+
+    global DEVICE_SN, PRODUCT_ID
 
     if msg.topic.endswith("status"):
         if message.get("method") != "update_topo":
