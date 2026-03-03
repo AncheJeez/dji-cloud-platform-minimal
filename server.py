@@ -33,7 +33,7 @@ PUBLIC_DIR = os.path.join(os.path.dirname(__file__), 'public')
 async def lifespan(app: FastAPI):
     # Startup
     print(f"🚀 Server running on http://localhost:{PORT}")
-    print(f"📊 Dashboard available at http://localhost:{PORT}")
+    print(f"📊 Dashboard available at http://localhost:{PORT}/dashboard")
     print(f"🔧 API config endpoint: http://localhost:{PORT}/api/config")
 
     missing = [var for var in REQUIRED_VARS if not os.getenv(var)]
