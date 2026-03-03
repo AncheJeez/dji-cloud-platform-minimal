@@ -116,6 +116,14 @@ async def serve_telemetry():
         raise HTTPException(status_code=404, detail="Telemetry not found")
     return FileResponse(telemetry_path)
 
+@app.get("/streaming")
+async def serve_telemetry():
+    # Serve the telemetry HTML
+    streaming_path = os.path.join(PUBLIC_DIR, 'streaming.html')
+    if not os.path.exists(streaming_path):
+        raise HTTPException(status_code=404, detail="Streaming not found")
+    return FileResponse(streaming_path)
+
 @app.get("/dashboard")
 async def serve_dashboard():
     # Serve the dashboard HTML
