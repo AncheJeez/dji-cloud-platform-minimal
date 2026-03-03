@@ -87,6 +87,14 @@ async def health_check():
     return {"status": "OK", "timestamp": datetime.utcnow().isoformat()}
 
 @app.get("/")
+async def serve_index():
+    # Serve the index HTML
+    index_path = os.path.join(PUBLIC_DIR, 'index.html')
+    if not os.path.exists(index_path):
+        raise HTTPException(status_code=404, detail="Index not found")
+    return FileResponse(index_path)
+
+@app.get("/dashboard")
 async def serve_dashboard():
     # Serve the dashboard HTML
     dashboard_path = os.path.join(PUBLIC_DIR, 'dashboard.html')
