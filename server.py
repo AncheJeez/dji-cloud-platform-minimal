@@ -94,6 +94,14 @@ async def serve_index():
         raise HTTPException(status_code=404, detail="Index not found")
     return FileResponse(index_path)
 
+@app.get("/telemetry")
+async def serve_telemetry():
+    # Serve the telemetry HTML
+    telemetry_path = os.path.join(PUBLIC_DIR, 'telemetry.html')
+    if not os.path.exists(telemetry_path):
+        raise HTTPException(status_code=404, detail="Telemetry not found")
+    return FileResponse(telemetry_path)
+
 @app.get("/dashboard")
 async def serve_dashboard():
     # Serve the dashboard HTML
