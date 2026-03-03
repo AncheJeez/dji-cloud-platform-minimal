@@ -1,4 +1,3 @@
 uvicorn
 FastAPI
 paho-mqtt >= 2
-python-
