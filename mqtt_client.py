@@ -14,12 +14,19 @@ load_dotenv()
 
 host_addr = os.environ.get("HOST_ADDR", "localhost")
 
+DEVICE_SN = None
+PRODUCT_ID = None
+BATTERY_PERCENT = None
+
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc, properties=None):
     print(f"[MQTT] Connected to {host_addr} with result code {rc}")
     client.subscribe("sys/#")
     client.subscribe("thing/#")
     print("[MQTT] Subscribed to topics: sys/#, thing/#")
+
+    client.subscribe("thing/product/+/device/+/status")
+    print("[MQTT] Subscribed to: thing/product/+/device/+/status")
 
 # Print interesting bits from message
 def handle_osd_message(message: dict):
@@ -42,6 +49,24 @@ def handle_osd_message(message: dict):
     if data:
         print("[OSD] Additional data:")
         pprint.pprint(data)
+
+    global BATTERY_PERCENT
+
+    if BATTERY_PERCENT is not None:
+        return
+
+    data = message.get("data", {})
+    battery = data.get("battery", {})
+    percent = battery.get("capacity_percent")
+
+    if percent is not None:
+        BATTERY_PERCENT = percent
+        print(f"🔋 Battery capacity: {percent}%")
+
+        # Cancelar suscripción después de obtenerla
+        client.unsubscribe(topic)
+        print(f"[MQTT] Unsubscribed from {topic}")
+
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage):
@@ -69,6 +94,36 @@ def on_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage):
     else:
         print("[MQTT] Message topic did not match any handler.")
 
+    global DEVICE_SN, PRODUCT_ID
+
+    print(f"[MQTT] Received: {msg.topic}")
+
+    try:
+        message = json.loads(msg.payload.decode("utf-8"))
+    except Exception as e:
+        print(f"[MQTT] Failed to decode message: {e}")
+        return
+
+    if msg.topic.endswith("status") and DEVICE_SN is None:
+
+        # El SN viene en el topic:
+        # thing/product/{product_id}/device/{device_sn}/status
+        parts = msg.topic.split("/")
+        PRODUCT_ID = parts[2]
+        DEVICE_SN = parts[4]
+
+        print(f"Drone detected!")
+        print(f"Product ID: {PRODUCT_ID}")
+        print(f"Serial Number: {DEVICE_SN}")
+
+        # Suscribirse al OSD del dron
+        osd_topic = f"thing/product/{PRODUCT_ID}/device/{DEVICE_SN}/osd"
+        client.subscribe(osd_topic)
+        print(f"[MQTT] Subscribed to OSD topic: {osd_topic}")
+
+    elif msg.topic.endswith("osd"):
+        handle_osd_message(client, msg.topic, message)
+
 def create_mqtt_client():
     PAHO_MAIN_VER = int(version("paho-mqtt").split(".")[0])
     if PAHO_MAIN_VER == 1:
@@ -82,6 +137,12 @@ def create_mqtt_client():
 def start_mqtt(blocking=True):
     client = create_mqtt_client()
     print(f"[MQTT] Connecting to {host_addr}:1883 ...")
+
+    # username = os.getenv("MQTT_USERNAME")
+    # password = os.getenv("MQTT_PASSWORD")
+    # client.username_pw_set(username, password)
+    # print(f"[MQTT] Authentication set with username: {username}")
+
     client.connect(host_addr, 1883, 60)
     if blocking:
         print("[MQTT] Entering blocking loop_forever()")

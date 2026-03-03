@@ -8,6 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager
 from datetime import datetime
 from mqtt_client import start_mqtt
+from mqtt_client import DEVICE_SN, BATTERY_PERCENT
 
 # Start MQTT in the background
 start_mqtt(blocking=False)
@@ -85,6 +86,19 @@ async def get_config():
 async def health_check():
     # Health check endpoint
     return {"status": "OK", "timestamp": datetime.utcnow().isoformat()}
+
+@app.get("/api/battery")
+async def get_battery():
+    if DEVICE_SN is None:
+        return {"error": "Drone not detected yet"}
+
+    if BATTERY_PERCENT is None:
+        return {"status": "Waiting for battery data..."}
+
+    return {
+        "serial_number": DEVICE_SN,
+        "battery_percent": BATTERY_PERCENT
+    }
 
 @app.get("/")
 async def serve_index():
