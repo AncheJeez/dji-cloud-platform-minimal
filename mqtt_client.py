@@ -18,6 +18,8 @@ DEVICE_SN = None
 PRODUCT_ID = None
 BATTERY_PERCENT = None
 
+TELEMETRY_DATA = {}
+
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc, properties=None):
     print(f"[MQTT] Connected to {host_addr} with result code {rc}")
@@ -29,7 +31,22 @@ def on_connect(client, userdata, flags, rc, properties=None):
     print("[MQTT] Subscribed to: thing/product/+/device/+/status")
 
 # Print interesting bits from message
-def handle_osd_message(message: dict):
+def handle_osd_message(client, topic, message: dict):
+
+    global TELEMETRY_DATA, BATTERY_PERCENT
+
+    data = message.get("data", {})
+
+    TELEMETRY_DATA = {
+        "latitude": data.get("latitude"),
+        "longitude": data.get("longitude"),
+        "height": data.get("height"),
+        "attitude_head": data.get("attitude_head"),
+        "attitude_pitch": data.get("attitude_pitch"),
+        "attitude_roll": data.get("attitude_roll"),
+        "battery_percent": data.get("battery", {}).get("capacity_percent")
+    }
+
     data = message.get("data", {})
     lat = data.pop("latitude", None)
     lon = data.get("longitude", None)
@@ -46,11 +63,16 @@ def handle_osd_message(message: dict):
         f"[OSD] Lat: {lat}, Lon: {lon}, Height: {height}, "
         f"Head: {attitude_head}, Pitch: {attitude_pitch}, Roll: {attitude_roll}"
     )
+
+    BATTERY_PERCENT = TELEMETRY_DATA["battery_percent"]
+
+    print("[OSD] Updated telemetry:", TELEMETRY_DATA)
+
     if data:
         print("[OSD] Additional data:")
         pprint.pprint(data)
 
-    global BATTERY_PERCENT
+    # global BATTERY_PERCENT
 
     # record battery once
     if BATTERY_PERCENT is None:
@@ -86,8 +108,10 @@ def on_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage):
         }
         client.publish(msg.topic + "_reply", payload=json.dumps(response))
         print(f"[MQTT] Published reply to {msg.topic}_reply")
-    elif msg.topic.endswith("osd") and msg.topic.startswith("thing"):
-        handle_osd_message(message)
+    # elif msg.topic.endswith("osd") and msg.topic.startswith("thing"):
+    #     handle_osd_message(message)
+    elif msg.topic.endswith("osd"):
+        handle_osd_message(client, msg.topic, message)
     else:
         print("[MQTT] Message topic did not match any handler.")
 
