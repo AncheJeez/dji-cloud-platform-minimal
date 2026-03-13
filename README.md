@@ -92,12 +92,13 @@ Rename `.env.example` to `.env` and set the following variables:
 DJI_APP_ID=<your_dji_app_id>
 DJI_APP_KEY=<your_dji_app_key>
 DJI_LICENSE=<your_dji_license>
-HOST_ADDR=<your_broker_host_or_ip>
+MQTT_HOST=<your_broker_host_or_ip>
+MQTT_PORT=1883
 MQTT_USERNAME=<mqtt_username>
 MQTT_PASSWORD=<mqtt_password>
 ```
 
-*Note*: `HOST_ADDR` is used by `mqtt_client.py` to determine the broker address. The MQTT port defaults to `1883`.
+*Note*: `MQTT_HOST`/`MQTT_PORT` are used by `mqtt_client.py` to determine the broker address. `HOST_ADDR` is still supported for backward compatibility.
 
 ---
 

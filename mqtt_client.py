@@ -12,13 +12,21 @@ import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 load_dotenv()
 
-host_addr = os.environ.get("HOST_ADDR", "localhost")
+# Prefer MQTT_* vars; keep HOST_ADDR for backwards compatibility
+host_addr = (
+    os.environ.get("MQTT_HOST")
+    or os.environ.get("HOST_ADDR")
+    or "localhost"
+)
+host_port = int(os.environ.get("MQTT_PORT", "1883"))
 
 DEVICE_SN = None
 PRODUCT_ID = None
 BATTERY_PERCENT = None
 
 TELEMETRY_DATA = {}
+_NO_DRONE_LOG_INTERVAL_SEC = 10
+_no_drone_logger_started = False
 
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -157,14 +165,32 @@ def create_mqtt_client():
 
 def start_mqtt(blocking=True):
     client = create_mqtt_client()
-    print(f"[MQTT] Connecting to {host_addr}:1883 ...")
+    print(f"[MQTT] Connecting to {host_addr}:{host_port} ...")
 
-    # username = os.getenv("MQTT_USERNAME")
-    # password = os.getenv("MQTT_PASSWORD")
-    # client.username_pw_set(username, password)
-    # print(f"[MQTT] Authentication set with username: {username}")
+    username = os.getenv("MQTT_USERNAME")
+    password = os.getenv("MQTT_PASSWORD")
+    if username or password:
+        client.username_pw_set(username or "", password or "")
+        print(f"[MQTT] Authentication set with username: {username}")
 
-    client.connect(host_addr, 1883, 60)
+    try:
+        client.connect(host_addr, host_port, 60)
+    except Exception as e:
+        print(f"[MQTT] Failed to connect to {host_addr}:{host_port} ({type(e).__name__}: {e})")
+        print("[MQTT] Telemetry unavailable: MQTT broker not reachable.")
+        print("[MQTT] No drone detection will occur until broker is reachable.")
+        return None
+    def _no_drone_logger():
+        while DEVICE_SN is None:
+            print("[MQTT] No drone detected yet.")
+            threading.Event().wait(_NO_DRONE_LOG_INTERVAL_SEC)
+
+    global _no_drone_logger_started
+    if not _no_drone_logger_started:
+        _no_drone_logger_started = True
+        thread = threading.Thread(target=_no_drone_logger, daemon=True)
+        thread.start()
+
     if blocking:
         print("[MQTT] Entering blocking loop_forever()")
         client.loop_forever()
